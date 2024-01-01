@@ -27,7 +27,7 @@ async function fetchLatestSwaps() {
         events.forEach(event => {
             const { sender, recipient, amount0, amount1 } = event.returnValues;
 
-            console.log('Acheteur:', sender);
+            console.log('Buyer:', sender);
             console.log('USD:', formatBuyNumber(amount0));
             console.log('WETH:', formatSellNumber(amount1));
             console.log('----------------------');
