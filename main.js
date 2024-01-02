@@ -1,8 +1,11 @@
 const { Web3 } = require('web3');
+import("node-fetch");
 const dotenv = require("dotenv");
 dotenv.config();
 
 const url = process.env.URL_INFURA;
+const telegramBotToken = process.env.TELEGRAM_BOT_TOKEN;
+const chatId = process.env.TELEGRAM_CHAT_ID;
 
 const web3 = new Web3(url);
 
@@ -11,6 +14,26 @@ const pairAddress = '0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640'; // L'adresse d
 
 const pairContract = new web3.eth.Contract(uniswapPairAbi, pairAddress);
 
+// Function to send message to telegram
+async function sendMessageToTelegram(message) {
+    const telegramApiUrl = `https://api.telegram.org/bot${telegramBotToken}/sendMessage`;
+    const params = new URLSearchParams({
+        chat_id: chatId,
+        text: message,
+    });
+
+    try {
+        const response = await fetch(`${telegramApiUrl}?${params}`);
+        const data = await response.json();
+        if (!data.ok) {
+            throw new Error(`Telegram API error: ${data.description}`);
+        }
+    } catch (error) {
+        console.error('Error sending message to Telegram:', error);
+    }
+}
+
+// Function to fetch the latest Swaps every 10 seconds
 async function fetchLatestSwaps() {
     console.log('Fetching latest swaps...');
     const latestBlockNumber = await web3.eth.getBlockNumber();
@@ -27,10 +50,14 @@ async function fetchLatestSwaps() {
         events.forEach(event => {
             const { sender, recipient, amount0, amount1 } = event.returnValues;
 
-            console.log('Buyer:', sender);
-            console.log('USD:', formatBuyNumber(amount0));
-            console.log('WETH:', formatSellNumber(amount1));
-            console.log('----------------------');
+            const message = `
+                Buyer: ${sender}
+                USD: ${formatBuyNumber(amount0)}
+                WETH: ${formatSellNumber(amount1)}
+                ----------------------
+            `;
+
+            sendMessageToTelegram(message);
         });
     } catch (error) {
         console.error('Error fetching swap events:', error);
@@ -39,7 +66,7 @@ async function fetchLatestSwaps() {
     console.log('Fetch complete.');
 }
 
-// Formatage des nombres avec séparateurs de milliers et deux décimales
+// Number formatting with thousand separators and two decimal places
 function formatBuyNumber(number, decimals = 6) {
     const adjustedNumber = Number(number) / 10 ** decimals;
     return adjustedNumber.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 });
@@ -50,5 +77,5 @@ function formatSellNumber(number, decimals = 18) {
     return adjustedNumber.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 });
 }
 
-// Fetch des swaps toutes les 10 secondes
+// Fetch swaps every 10 seconds
 setInterval(fetchLatestSwaps, 10000);
